@@ -5,13 +5,24 @@ from Todim import Todim
 def main():
     theta = 1
     tamanho_carteira = 10
-    filename = 'input1.xlsx'
+    filename = 'input3.xlsx'
+
+    # criterios = [
+    #     {"coluna": "cliente"},
+    #     {"peso": 10, "coluna": "ultimo_relacionamento", "maximiza": True},
+    #     {"peso": 10, "coluna": "aniversario_de_cliente", "maximiza": True},
+    #     {"peso": 10, "coluna": "data_da_proxima_agenda", "maximiza": True},
+    #     {"peso": 20,  "coluna": "data_da_ultima_sugestao", "maximiza": True},
+    #     {"peso": 10, "coluna": "saldo_em_conta", "maximiza": True},
+    #     {"peso": 20, "coluna": "vencimento_rf", "maximiza": True},
+    #     {"peso": 20,  "coluna": "oportunidades", "maximiza": True}
+    # ]
 
     criterios = [
         {"coluna": "cliente"},
         {"peso": 10, "coluna": "ultimo_relacionamento", "maximiza": True},
-        {"peso": 10, "coluna": "aniversario_de_cliente", "maximiza": True},
-        {"peso": 10, "coluna": "data_da_proxima_agenda", "maximiza": True},
+        {"peso": 10, "coluna": "aniversario_de_cliente", "maximiza": False},
+        {"peso": 10, "coluna": "data_da_proxima_agenda", "maximiza": False},
         {"peso": 20,  "coluna": "data_da_ultima_sugestao", "maximiza": True},
         {"peso": 10, "coluna": "saldo_em_conta", "maximiza": True},
         {"peso": 20, "coluna": "vencimento_rf", "maximiza": True},
