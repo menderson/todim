@@ -5,10 +5,20 @@ import pandas as pd
 def main():
 
     theta = 1     # θ perdas
-    pesos = [30., 60., 100., 50., 40.]
-    colunas = ['Ativo', 'vpl_por_cota-Jan-2022','taxa_adm-Jan-2022','dy-Jan-2022','patrimonio_liquido-Jan-2022','cotacao-Jan-2022']
     segmentos = []
     tamanho_carteira = 10
+    filename = 'input1.xlsx'
+    vetor = [
+    {"coluna": "cliente"},
+    {"peso": 10,    "coluna": "ultimo_relacionamento"},
+    {"peso": 10,    "coluna": "aniversario_de_cliente"},
+    {"peso": 10,    "coluna": "data_da_proxima_agenda"},
+    {"peso": 7,     "coluna": "data_da_ultima_sugestao"},
+    {"peso": 10,    "coluna": "saldo_em_conta"},
+    {"peso": 200,   "coluna": "vencimento_rf"},
+    {"peso": 7,     "coluna": "oportunidades"}
+    ]
+
 
     # segmentos = [
     # 'Lajes Corporativas', 'Hotéis', 'Imóveis Industriais e Logísticos',
@@ -18,9 +28,18 @@ def main():
     # 'Papéis', 'Fundo de Fundos', 'Fundo de Desenvolvimento','Títulos e Valores Mobiliários',
     # 'Indefinido', 'Misto', 'Híbrido']
 
+    # extrai os pesos e as colunas do vetor
+    pesos = []
+    colunas = []
+    for index, i in enumerate(vetor):
+        colunas.append(i["coluna"])
+        #peso desconsidera o primeiro elemento
+        if index > 0:
+            pesos.append(i["peso"])
+
 
     # Pré processamento
-    (codigos, matriz) = ingestData(colunas, segmentos)
+    (codigos, matriz) = ingestData(colunas, segmentos, filename)
 
     ################################################
     # TODIM Clássico
@@ -41,7 +60,7 @@ def main():
     todim.plot_bars()
 
 
-def ingestData(colunas, segmentos, filename='input.xlsx'):
+def ingestData(colunas, segmentos, filename):
     # print("Importando o .csv")
     if len(colunas) < 1:
         print("Erro nos parametros de {}()".format(ingestData.__name__))
@@ -51,9 +70,10 @@ def ingestData(colunas, segmentos, filename='input.xlsx'):
         raw_matrix = pd.read_excel(filename, sheet_name='input')
 
         # filtra os segmentos
-        if segmentos != None and len(segmentos) > 0:
-            raw_matrix = raw_matrix[raw_matrix.Segmento.isin(
-                segmentos)]
+        # if segmentos != None and len(segmentos) > 0:
+        #     raw_matrix = raw_matrix[raw_matrix.Segmento.isin(
+        #         segmentos)]
+
             
 
         # faz a exclusão das linhas que contem algum valor numerico nulo.

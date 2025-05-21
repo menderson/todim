@@ -44,13 +44,16 @@ class Todim:
                 self.norm_matrix_d[i, j] = self.matrix_d[i, j] / m[j]
         self.matrix_d = self.norm_matrix_d
 
-    # Etapa 3 - normalizar os normaliza os pesos
+        print("Matriz normalizada", self.matrix_d)
+
+    # Etapa 3 - normaliza os pesos
     def normalize_weights(self):
         if self.weights.sum() > 1.0000001 or self.weights.sum() < 0.9999999:
             # pnc = wc/pr onde pr = sum(wc)
             self.weights = self.weights/self.weights.sum()
         # peso de referencia - wr (o maior peso entre todos os pesos dos critérios normalizados)
         self.wref = self.weights.max()
+        print("Matriz de pesos normalizada", self.weights)
 
     # Etapa 5 - ζ - calcula o grau de dominio (matriz dominancia final)
     def get_grau_dominio(self):
