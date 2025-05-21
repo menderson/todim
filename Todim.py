@@ -1,140 +1,108 @@
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 
 class Todim:
-
-    matrix_d = None         # A matriz de decisão com as alternativas e criterios
-    maximization = None     # Maximizar ou minimizar?
-    weights = None          # Os pesos para cada criterio
-    codes = None            # Os códigos de identificação das empresas
-    wref = None             # Peso de referencia
-    theta = None            # O valor de theta
-    n_alt = None            # O numero de alternativas
-    n_cri = None            # O numero de criterios
-    norm_matrix_d = None    # A matrizD normalizada
-    phi = None              # Parcela de contribuição de um criterio
-    delta = None            # Matriz n_alt x n_alt, cada endereço é composto pela dominancia de uma alternativa i sobre uma j
-    c_proximidade = None    # O coeficiente relativo de proximidade
-    tamanho_carteira = None # Tamanho da carteira
-
-    # Etapa 1 - cria a matriz de decisão
-    def __init__(self, matriz, pesos, codigos, theta, tamanho_carteira, max=True):
-        self.maximization = max
-        self.matrix_d = np.asarray(matriz)
-        self.weights = np.asarray(pesos)
-        self.codes = np.asarray(codigos)
-        self.theta = theta
+    def __init__(self, matriz, pesos, codigos, tamanho_carteira=5, theta=1, maximiza=None, debug=False):
+        self.matrix_d = np.asarray(matriz, dtype=float)
+        self.weights = np.asarray(pesos, dtype=float)
+        self.codes = np.asarray(codigos).reshape(-1, 1)
         self.tamanho_carteira = tamanho_carteira
+        self.theta = theta
+        self.debug = debug
 
-        # inicializar as variaveis
-        tam = self.matrix_d.shape
-        [self.n_alt, self.n_cri] = tam
-        self.norm_matrix_d = np.zeros(tam, dtype=float)
-        self.delta = np.zeros([self.n_alt, self.n_alt])
-        self.r_closeness = np.zeros([self.n_alt, 1], dtype=float)
+        assert self.matrix_d.shape[0] == len(codigos), "Número de códigos não bate com número de alternativas"
+        assert self.matrix_d.shape[1] == len(pesos), "Número de pesos deve ser igual ao número de critérios"
+        assert self.tamanho_carteira <= self.matrix_d.shape[0], "Carteira maior que número de alternativas"
 
-    # Etapa 2 - normaliza a matriz de decisão
-    def normalize_matrix(self):
-        # somatório dos valores de desempenho das alternativas de um criterio (criterios são colunas ( soma das linhas de uma coluna axis = 0))
-        m = self.matrix_d.sum(axis=0)
-        
-        for i in range(self.n_alt):
-            for j in range(self.n_cri):
-                self.norm_matrix_d[i, j] = self.matrix_d[i, j] / m[j]
-        self.matrix_d = self.norm_matrix_d
-
-        print("Matriz normalizada", self.matrix_d)
-
-    # Etapa 3 - normaliza os pesos
-    def normalize_weights(self):
-        if self.weights.sum() > 1.0000001 or self.weights.sum() < 0.9999999:
-            # pnc = wc/pr onde pr = sum(wc)
-            self.weights = self.weights/self.weights.sum()
-        # peso de referencia - wr (o maior peso entre todos os pesos dos critérios normalizados)
-        self.wref = self.weights.max()
-        print("Matriz de pesos normalizada", self.weights)
-
-    # Etapa 5 - ζ - calcula o grau de dominio (matriz dominancia final)
-    def get_grau_dominio(self):
-
-        self.get_sum_delta()
-        # todos os delta de uma linha (todos os criterios de uma alternativa)
-        aux = self.delta.sum(axis=1)
-        for i in range(self.n_alt):
-            self.r_closeness[i] = (aux[i] - aux.min()) / \
-                (aux.max() - aux.min())
-
-    # Etrapa 4 - δ - (Ai,Aj)
-    def get_sum_delta(self):
-        # somatorio de todos os deltas
-        for i in range(self.n_alt):
-            for j in range(self.n_alt):
-                self.delta[i, j] = self.get_sum_phi(i, j)
-
-    def get_sum_phi(self, i, j):
-        m = 0
-        for c in range(self.n_cri):
-            m = m + self.get_phi(i, j, c)
-        return m
-    
-    # Φ phi
-    def get_phi(self, i, j, c):
-        # etapa 3 - adota-se wrc como representação da taxa de substituição do critério c em relação ao critério de referencia wr
-        # wrc = pnc/wr
-        wcr = self.weights[c]/self.wref
-        # -----------------
-
-        # somatório das taxas de substituição (∑mc=1 wrc)
-        sum_w_ref = self.get_sum_w_ref()
-        
-        # (Pic −Pjc)
-        dij = self.get_distance(i, j, c)
-
-        comp = self.get_comparison(i, j, c)
-        
-        if comp == 0:
-            return 0
-        elif comp > 0:
-            return np.sqrt((wcr*abs(dij))/sum_w_ref)
+        # Se maximiza não foi passado, assume todos True (maximiza todos)
+        if maximiza is None:
+            self.maximiza = np.array([True] * self.matrix_d.shape[1])
         else:
-            return np.sqrt((sum_w_ref*abs(dij))/wcr)/(-self.theta)
+            if len(maximiza) != self.matrix_d.shape[1]:
+                raise ValueError("O vetor maximiza deve ter o mesmo tamanho que o número de critérios.")
+            self.maximiza = np.array(maximiza, dtype=bool)
 
-    def get_sum_w_ref(self):
-        sum_w_ref = 0
-        for c in self.weights:
-            sum_w_ref += c / self.wref
-        return sum_w_ref
+        self.norm_matrix_d = None
+        self.norm_weights = None
+        self.wref = None
+        self.r_closeness = None
 
-    def get_distance(self, alt_i, alt_j, crit):
-        return (self.matrix_d[alt_i, crit] - self.matrix_d[alt_j, crit])
+    def normalize_matrix(self):
+        # Normaliza por soma da coluna
+        self.norm_matrix_d = self.matrix_d / self.matrix_d.sum(axis=0)
 
-    # funcao modular para possibilitar outros tipos de comparações
-    def get_comparison(self, alt_i, alt_j, crit):
-        return self.get_distance(alt_i, alt_j, crit)
-    
-    def plot_bars(self, names=None, save_name=None):
+        # Inverte os valores dos critérios que são minimizados
+        for i, maximiza in enumerate(self.maximiza):
+            if not maximiza:
+                self.norm_matrix_d[:, i] = 1 - self.norm_matrix_d[:, i]
 
-        # une as matrizes de codigos e de grau de dominancia
-        all_data = np.append(self.codes, self.r_closeness, 1)
+        if self.debug:
+            print("Matriz normalizada e ajustada (maximiza):\n", self.norm_matrix_d)
+        return self
 
-        # ordena a matriz numpy de acordo com a segunda coluna(valores finais obtidos pelo Todim)
-        # fica apenas com os maiores valores para compor a carteira
-        all_data = all_data[all_data[:, 1].argsort()[::-1]][:self.tamanho_carteira]
-        # exibe uma grafico de barras
-        sns.set_style("whitegrid")
+    def normalize_weights(self):
+        self.norm_weights = self.weights / self.weights.sum()
+        self.wref = np.max(self.norm_weights)
+        if self.debug:
+            print("Pesos normalizados:", self.norm_weights)
+            print("Peso de referência:", self.wref)
+        return self
 
-        # coloca margens no grafico
-        sns.set(rc={'figure.figsize': (8, 5)})
+    def get_distance(self, i, j, c):
+        return self.norm_matrix_d[i, c] - self.norm_matrix_d[j, c]
 
-        
-        a = sns.barplot(x=all_data[:, 1], y=all_data[:, 0], palette="summer")
+    def get_relative_weight(self, c):
+        return self.norm_weights[c] / self.wref
 
-        a.set_xlabel("Grau de Dominância")
-        a.set_ylabel('Alternativas')
-        fig = a.get_figure()
-        plt.title('Ranking')
+    def dominance(self, dij, wr):
+        if dij == 0:
+            return 0
+        if dij > 0:
+            return np.sqrt(wr * dij)
+        return -np.sqrt(abs(dij * wr) / self.theta)
+
+    def compute_dominance(self):
+        n_alt = self.norm_matrix_d.shape[0]
+        delta = np.zeros((n_alt, n_alt))
+
+        for i in range(n_alt):
+            for j in range(n_alt):
+                soma = 0
+                for c in range(len(self.norm_weights)):
+                    dij = self.get_distance(i, j, c)
+                    wr = self.get_relative_weight(c)
+                    soma += self.dominance(dij, wr)
+                delta[i, j] = soma
+
+        phi = delta.sum(axis=1)
+        self.r_closeness = (phi - np.min(phi)) / (np.max(phi) - np.min(phi))
+        self.r_closeness = self.r_closeness.reshape(-1, 1)
+        if self.debug:
+            print("Valores de closeness:\n", self.r_closeness)
+        return self
+
+    def get_ranked_alternatives(self):
+        data = np.append(self.codes, self.r_closeness, axis=1)
+        return data[data[:, 1].astype(float).argsort()[::-1]]
+
+    def plot_bars(self):
+        ranked = self.get_ranked_alternatives()[:self.tamanho_carteira]
+        nomes = ranked[:, 0]
+        valores = ranked[:, 1].astype(float)
+
+        plt.figure(figsize=(10, 6))
+        bars = plt.bar(nomes, valores, color='steelblue')
+        plt.title('Alternativas Selecionadas - Método TODIM')
+        plt.xlabel('Alternativas')
+        plt.ylabel('Closeness')
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+        for bar, value in zip(bars, valores):
+            plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f'{value:.2f}',
+                     ha='center', va='bottom', fontsize=10)
+
+        plt.tight_layout()
         plt.show()
 
-        if save_name is not None:
-            fig.savefig(save_name+'.png')
+    def run(self):
+        return self.normalize_matrix().normalize_weights().compute_dominance()
